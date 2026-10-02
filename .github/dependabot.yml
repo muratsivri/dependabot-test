@@ -1,38 +1,55 @@
-# Sadece GUVENLIK odakli Dependabot yapilandirmasi.
-#
-# open-pull-requests-limit: 0 -> "yeni surum cikti" PR'lari (version updates)
-# tamamen kapanir. Guvenlik PR'lari (security updates) bu limitten etkilenmez;
-# onlar repo ayarlarindaki "Dependabot security updates" ile acilir ve
-# asagidaki etiket/commit/grup ayarlarini kullanir.
+# Dependabot surum guncellemeleri yapilandirmasi.
+# Belgeler: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
 version: 2
 
 updates:
-  # Python paketleri (requirements.txt)
+  # 1) Python paketleri (requirements.txt)
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 0
-    labels: ["security"]
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/Istanbul"
+    open-pull-requests-limit: 5
+    labels: ["dependencies", "python"]
     commit-message:
-      prefix: "security(pip)"
+      prefix: "deps(pip)"
+    # Kucuk/yama guncellemelerini tek PR'da topla -> daha az gurultu
     groups:
-      # Tum Python guvenlik duzeltmeleri tek PR'da -> birbirine bagimli
-      # paketler (orn. requests + certifi) ayni anda guncellenir.
-      python-security:
-        applies-to: security-updates
-        patterns: ["*"]
+      python-minor-patch:
+        update-types: ["minor", "patch"]
 
-  # GitHub Actions workflow'larindaki action'lar
+  # 2) Dockerfile icindeki base image (apache/airflow)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "docker"]
+    commit-message:
+      prefix: "deps(docker)"
+    ignore:
+      # Airflow 3.x buyuk bir gecis; otomatik onerilmesin, elle planlayacagiz.
+      - dependency-name: "apache/airflow"
+        update-types: ["version-update:semver-major"]
+
+  # 3) docker-compose.yaml icindeki image'lar (postgres vb.)
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels: ["dependencies", "docker"]
+    commit-message:
+      prefix: "deps(compose)"
+
+  # 4) GitHub Actions workflow'larindaki action surumleri
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"
-    open-pull-requests-limit: 0
-    labels: ["security"]
+      interval: "weekly"
+    labels: ["dependencies", "ci"]
     commit-message:
-      prefix: "security(actions)"
+      prefix: "deps(actions)"
     groups:
-      actions-security:
-        applies-to: security-updates
+      actions:
         patterns: ["*"]
