@@ -1,0 +1,37 @@
+name: DAG testleri
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_VERSION: "2.10.5"
+      PYTHON_VERSION: "3.12"
+    steps:
+      # Bilerek eski action surumleri: Dependabot (github-actions) bunlari guncellemeli.
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Airflow'u constraints ile kur
+        run: |
+          pip install "apache-airflow==${AIRFLOW_VERSION}" pytest \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+
+      - name: Proje paketlerini kur (Dockerfile ile ayni sekilde)
+        run: pip install "apache-airflow==${AIRFLOW_VERSION}" -r requirements.txt
+
+      - name: Airflow veritabanini hazirla
+        run: airflow db migrate
+
+      - name: Testleri calistir
+        run: pytest -v tests/
