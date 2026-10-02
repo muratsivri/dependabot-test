@@ -3,8 +3,8 @@
 # DIKKAT: Bu surumler Dependabot'u test etmek icin BILEREK eski ve
 # bilinen guvenlik aciklari olan surumlerdir. Dependabot bunlar icin
 # uyari (alert) ve guncelleme PR'i acmali.
-requests==2.31.0      # CVE-2024-35195 (2.32.0'da duzeltildi)
-jinja2==3.1.2         # CVE-2024-22195, CVE-2024-34064 (3.1.4+)
-certifi==2022.9.24    # CVE-2022-23491, CVE-2023-37920
-idna==3.6             # CVE-2024-3651 (3.7'de duzeltildi)
-urllib3==1.26.17      # CVE-2023-45803, CVE-2024-37891 (1.26.19+)
+requests==2.33.0      # CVE-2024-35195 (2.32.0'da duzeltildi)
+jinja2==3.1.6         # CVE-2024-22195, CVE-2024-34064 (3.1.4+)
+certifi==2024.7.4    # CVE-2022-23491, CVE-2023-37920
+idna==3.15             # CVE-2024-3651 (3.7'de duzeltildi)
+urllib3==2.8.0      # CVE-2023-45803, CVE-2024-37891 (1.26.19+)
