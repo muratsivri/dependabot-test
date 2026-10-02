@@ -1,4 +1,4 @@
-name: DAG testleri
+name: Testler
 
 on:
   push:
@@ -9,13 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  airflow-dags:
+    name: DAG testleri
     runs-on: ubuntu-latest
     env:
       AIRFLOW_VERSION: "2.10.5"
       PYTHON_VERSION: "3.12"
     steps:
-      # Bilerek eski action surumleri: Dependabot (github-actions) bunlari guncellemeli.
       - uses: actions/checkout@v3
 
       - uses: actions/setup-python@v4
@@ -35,3 +35,35 @@ jobs:
 
       - name: Testleri calistir
         run: pytest -v tests/
+
+  api:
+    name: API testleri
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -v tests/
+
+  dashboard:
+    name: Panel testleri
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - run: npm ci --ignore-scripts
+      - run: npm test

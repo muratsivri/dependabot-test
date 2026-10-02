@@ -8,3 +8,6 @@ airflow.db
 airflow.cfg
 webserver_config.py
 standalone_admin_password.txt
+node_modules/
+api/dags.db
+.pytest_cache/

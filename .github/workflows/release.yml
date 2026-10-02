@@ -1,0 +1,35 @@
+name: Release paketi
+
+# Sadece elle tetiklenir; otomatik calismaz.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: DAG'lari paketle
+        run: tar czf dags.tar.gz dags/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dags
+          path: dags.tar.gz
+
+  verify:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      # BILEREK zafiyetli surum: CVE-2024-42471 (path traversal, 4.1.3'te duzeltildi).
+      # Dependabot bunu github-actions ekosisteminde yakalamali.
+      - uses: actions/download-artifact@v4.1.2
+        with:
+          name: dags
+
+      - name: Paketi kontrol et
+        run: tar tzf dags.tar.gz

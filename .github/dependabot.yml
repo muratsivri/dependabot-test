@@ -1,55 +1,53 @@
-# Dependabot surum guncellemeleri yapilandirmasi.
-# Belgeler: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+# Sadece GUVENLIK odakli Dependabot yapilandirmasi.
+#
+# open-pull-requests-limit: 0 -> "yeni surum cikti" PR'lari (version updates)
+# tamamen kapanir. Guvenlik PR'lari bu limitten etkilenmez; hangi aciklar icin
+# PR acilacagini repo ayarlarindaki Dependabot auto-triage kurallari belirler.
 version: 2
 
 updates:
-  # 1) Python paketleri (requirements.txt)
+  # Python paketleri: Airflow (/) ve FastAPI servisi (/api)
   - package-ecosystem: "pip"
-    directory: "/"
+    directories:
+      - "/"
+      - "/api"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Europe/Istanbul"
-    open-pull-requests-limit: 5
-    labels: ["dependencies", "python"]
+      interval: "daily"
+    open-pull-requests-limit: 0
+    labels: ["security"]
     commit-message:
-      prefix: "deps(pip)"
-    # Kucuk/yama guncellemelerini tek PR'da topla -> daha az gurultu
+      prefix: "dependabot(pip)"
     groups:
-      python-minor-patch:
-        update-types: ["minor", "patch"]
+      # Ayni klasordeki tum Python guvenlik duzeltmeleri tek PR'da ->
+      # birbirine bagimli paketler (orn. requests + certifi) birlikte guncellenir.
+      python-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
-  # 2) Dockerfile icindeki base image (apache/airflow)
-  - package-ecosystem: "docker"
-    directory: "/"
+  # Node.js paneli (/dashboard)
+  - package-ecosystem: "npm"
+    directory: "/dashboard"
     schedule:
-      interval: "weekly"
-    labels: ["dependencies", "docker"]
+      interval: "daily"
+    open-pull-requests-limit: 0
+    labels: ["security"]
     commit-message:
-      prefix: "deps(docker)"
-    ignore:
-      # Airflow 3.x buyuk bir gecis; otomatik onerilmesin, elle planlayacagiz.
-      - dependency-name: "apache/airflow"
-        update-types: ["version-update:semver-major"]
+      prefix: "dependabot(npm)"
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
 
-  # 3) docker-compose.yaml icindeki image'lar (postgres vb.)
-  - package-ecosystem: "docker-compose"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels: ["dependencies", "docker"]
-    commit-message:
-      prefix: "deps(compose)"
-
-  # 4) GitHub Actions workflow'larindaki action surumleri
+  # GitHub Actions workflow'larindaki action'lar
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-    labels: ["dependencies", "ci"]
+      interval: "daily"
+    open-pull-requests-limit: 0
+    labels: ["security"]
     commit-message:
-      prefix: "deps(actions)"
+      prefix: "dependabot(actions)"
     groups:
-      actions:
+      actions-security:
+        applies-to: security-updates
         patterns: ["*"]

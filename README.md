@@ -1,121 +1,97 @@
 # Airflow + Dependabot Demo
 
-Yerelde Airflow 2.10.5 çalıştıran, örnek DAG'lar içeren ve GitHub'ın güvenlik araçlarını (Dependabot, CodeQL) test etmek için **bilerek** eski/zafiyetli bağımlılıklar barındıran bir örnek repo.
+GitHub'ın güvenlik araçlarını (Dependabot, CodeQL) gerçekçi bir projede test etmek için hazırlanmış, **bilerek** zafiyetli bir örnek repo. Üç parçadan oluşur: Airflow DAG'ları, bir FastAPI servisi ve bir Node.js paneli.
+
+> ⚠️ Bu repo bilerek güvensizdir. Hiçbir parçasını üretimde kullanma veya internete açma.
 
 ## İçerik
 
 ```
 .
-├── Dockerfile                    # apache/airflow:2.10.5-python3.12 + requirements.txt
-├── docker-compose.yaml           # Postgres + webserver + scheduler (LocalExecutor)
-├── requirements.txt              # Bilerek eski paketler (Dependabot test)
-├── dags/
-│   ├── hello_world_dag.py        # Basit Bash + Python görevi
-│   ├── etl_example_dag.py        # TaskFlow API ile mini ETL
-│   └── insecure_example_dag.py   # Bilerek güvensiz kod (CodeQL test)
-├── tests/test_dag_integrity.py   # DAG import/yapı testleri
+├── Dockerfile, docker-compose.yaml   # Yerel Airflow 2.10.5 (LocalExecutor + Postgres)
+├── requirements.txt                  # Airflow + DAG paketleri (eski sürümler)
+├── dags/                             # 3 örnek DAG (biri bilerek güvensiz)
+├── tests/                            # DAG testleri
+├── api/                              # FastAPI servisi
+│   ├── main.py                       # Bilerek güvensiz endpoint'ler
+│   ├── requirements.txt              # Eski FastAPI, starlette, pyjwt, aiohttp...
+│   └── tests/
+├── dashboard/                        # Node.js / Express paneli
+│   ├── server.js                     # Bilerek güvensiz endpoint'ler
+│   ├── package.json + package-lock.json
+│   └── test/
 └── .github/
-    ├── dependabot.yml            # pip, docker, docker-compose, github-actions
+    ├── dependabot.yml                # Sadece güvenlik güncellemeleri
     └── workflows/
-        ├── ci.yml                # Her PR'da DAG testleri
-        └── codeql.yml            # Kod taraması
+        ├── ci.yml                    # DAG + API + panel testleri
+        ├── codeql.yml                # Python, JavaScript, Actions taraması
+        └── release.yml               # Bilerek zafiyetli bir action içerir
 ```
 
-## 1. Airflow'u yerelde çalıştır
+## Dependabot'un bulması beklenenler
 
-Gereksinim: Docker Desktop (en az 4 GB RAM ayrılmış olmalı).
+| Ekosistem | Dosya | Örnek paketler | Not |
+|---|---|---|---|
+| pip | `requirements.txt` | apache-airflow 2.10.5, urllib3, requests, jinja2, certifi, idna | Airflow çekirdeğinin kendi açıkları da görünür |
+| pip | `api/requirements.txt` | fastapi, starlette, python-multipart, pyjwt, cryptography, pyyaml, aiohttp, gunicorn | Kod çalıştırma, DoS, request smuggling gibi farklı türler |
+| npm | `dashboard/package-lock.json` | minimist (**Critical**), lodash, axios, express, jsonwebtoken, moment, node-fetch | express'in getirdiği **dolaylı** (transitive) paketler de: qs, body-parser, path-to-regexp |
+| github-actions | `.github/workflows/release.yml` | actions/download-artifact 4.1.2 | CVE-2024-42471 |
 
-```bash
-# Linux'ta dosya izinleri için (macOS/Windows'ta gerekmez)
-echo "AIRFLOW_UID=$(id -u)" > .env
+Docker image'ları (`apache/airflow`, `postgres`) Dependabot güvenlik taraması kapsamında **değildir**; onlar için Trivy gibi ayrı bir araç gerekir.
 
-docker compose up airflow-init    # DB'yi hazırlar, kullanıcı oluşturur
-docker compose up -d              # Servisleri başlatır
-```
+## CodeQL'in bulması beklenenler
 
-Arayüz: http://localhost:8080 — kullanıcı `airflow`, şifre `airflow`.
-
-DAG'lar duraklatılmış başlar; arayüzden açıp ▶ ile tetikleyebilirsin.
-
-Komut satırından tek DAG test etmek için:
-
-```bash
-docker compose exec airflow-scheduler airflow dags test etl_example
-```
-
-Kapatmak için: `docker compose down` (verileri de silmek için `-v` ekle).
-
-## 2. Testleri yerelde çalıştır (Docker olmadan, isteğe bağlı)
-
-```bash
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install "apache-airflow==2.10.5" pytest \
-  --constraint https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.12.txt
-pip install "apache-airflow==2.10.5" -r requirements.txt
-export AIRFLOW_HOME=$PWD/.airflow AIRFLOW__CORE__LOAD_EXAMPLES=false
-airflow db migrate
-pytest -v tests/
-```
-
-## 3. GitHub'a gönder
-
-GitHub'da boş bir repo oluştur (README eklemeden), sonra:
-
-```bash
-git init -b main
-git add .
-git commit -m "Airflow + Dependabot demo"
-git remote add origin https://github.com/<kullanici>/airflow-dependabot-demo.git
-git push -u origin main
-```
-
-## 4. Güvenlik özelliklerini aç
-
-Repo → **Settings → Advanced Security** (bazı hesaplarda "Code security") bölümünde:
-
-| Özellik | Ne yapar |
-|---|---|
-| Dependency graph | Bağımlılıkları çıkarır (diğerlerinin ön koşulu) |
-| Dependabot alerts | Zafiyetli paketler için uyarı |
-| Dependabot security updates | Zafiyetler için otomatik düzeltme PR'ı |
-| Grouped security updates | Güvenlik PR'larını tek PR'da toplar (isteğe bağlı) |
-| Code scanning | CodeQL sonuçları (`codeql.yml` zaten bunu çalıştırır) |
-| Secret scanning + Push protection | Sızan anahtarları yakalar/push'u engeller |
-
-> `dependabot.yml` dosyası **sürüm güncellemelerini** (version updates) yönetir. Güvenlik uyarıları ve güvenlik PR'ları ise yukarıdaki ayarlardan açılır; ikisi ayrı mekanizmalardır.
-
-## 5. Beklenen sonuçlar
-
-**Security → Dependabot** sekmesinde `requirements.txt` için uyarılar:
-
-| Paket | Sürüm | Örnek açık |
+| Dosya | Endpoint / yer | Açık türü |
 |---|---|---|
-| requests | 2.31.0 | CVE-2024-35195 |
-| jinja2 | 3.1.2 | CVE-2024-22195, CVE-2024-34064 |
-| certifi | 2022.9.24 | CVE-2022-23491, CVE-2023-37920 |
-| idna | 3.6 | CVE-2024-3651 |
-| urllib3 | 1.26.17 | CVE-2023-45803, CVE-2024-37891 |
+| `api/main.py` | `/dags/search` | SQL injection |
+| `api/main.py` | `/logs` | Path traversal |
+| `api/main.py` | `/ping` | Komut enjeksiyonu |
+| `api/main.py` | `/hello` | Reflected XSS |
+| `api/main.py` | `/config` | Güvensiz YAML yükleme |
+| `api/main.py` | `/me` | İmzası doğrulanmayan JWT |
+| `dashboard/server.js` | `/greet` | Reflected XSS |
+| `dashboard/server.js` | `/proxy` | SSRF |
+| `dashboard/server.js` | `/settings` | Prototype pollution |
+| `dashboard/server.js` | `/whoami` | İmzası doğrulanmayan JWT |
+| `dags/insecure_example_dag.py` | — | TLS doğrulaması kapalı, MD5 ile şifre |
+| `dags/etl_example_dag.py` | — | Jinja2 autoescape kapalı |
 
-**Pull requests** sekmesinde Dependabot PR'ları:
+## Dependabot yapılandırması
 
-- `deps(pip)`: Python paket güncellemeleri (minor/patch'ler tek grupta)
-- `deps(docker)`: `apache/airflow` 2.x içindeki yeni sürümler (3.x bilerek hariç)
-- `deps(compose)`: `postgres:13` → daha yeni major
-- `deps(actions)`: `actions/checkout@v3`, `actions/setup-python@v4` güncellemeleri
+`dependabot.yml` sadece güvenlik odaklıdır:
 
-Her PR'da **DAG testleri** çalışır; güncelleme bir DAG'ı bozarsa PR kırmızı olur.
+- `open-pull-requests-limit: 0` ile "yeni sürüm çıktı" PR'ları kapalı.
+- Her ekosistemde güvenlik düzeltmeleri tek PR'da gruplanır.
+- Hangi açıklar için PR açılacağını repo ayarlarındaki **auto-triage kuralları** belirler (Settings → Advanced Security → Dependabot rules). Bu repoda: High/Critical → PR aç, Moderate/Low → otomatik kapat.
 
-**Security → Code scanning** sekmesinde `insecure_example_dag.py` için bulgular:
+## Yerelde çalıştırma
 
-- TLS doğrulaması kapalı istek (`verify=False`)
-- Şifre için zayıf hash (MD5)
+**Airflow** (Docker gerekli):
+```bash
+echo "AIRFLOW_UID=$(id -u)" > .env     # sadece Linux
+docker compose up airflow-init
+docker compose up -d                   # http://localhost:8080  (airflow / airflow)
+```
 
-## 6. Elle tetikleme ve ipuçları
+**API** (Python 3.12):
+```bash
+cd api
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
+pytest -v tests/
+uvicorn main:app --reload               # http://localhost:8000/docs
+```
 
-- İlk taramayı beklemek istemezsen: **Insights → Dependency graph → Dependabot** sekmesinde her ekosistem için "Check for updates" butonu var.
-- Bir Dependabot PR'ında yorum olarak komut yazabilirsin: `@dependabot rebase`, `@dependabot recreate`, `@dependabot ignore this major version` vb.
-- Org genelinde tüm repolar için açmak: **Organization Settings → Advanced Security → Configurations** üzerinden bir güvenlik yapılandırması oluşturup tüm repolara uygula.
+**Panel** (Node.js 20+):
+```bash
+cd dashboard
+npm ci --ignore-scripts
+npm test
+npm start                               # http://localhost:3000/dags
+```
 
-## Uyarı
+## Bir PR'ı değerlendirirken
 
-Bu repo bilerek güvensizdir. `insecure_example_dag.py` ve `requirements.txt` içindeki sürümleri gerçek projelerde kullanma.
+1. Uyarı sayfasında **severity**, **EPSS** ve **"Affected usages"** kısmına bak: açık senin kullandığın fonksiyonda mı?
+2. PR'daki sürüm notlarında güvenlik dışı **kırıcı değişiklikleri** (örneğin bir Python sürümü desteğinin kalkması) kontrol et.
+3. CI yeşil değilse merge etme; genelde sebep, birbirine bağımlı iki paketin ayrı ayrı güncellenmesidir.
